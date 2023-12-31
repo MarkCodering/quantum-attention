@@ -10,9 +10,9 @@ from qiskit.circuit.library import (
 from qiskit_machine_learning.neural_networks import SamplerQNN, EstimatorQNN
 from qiskit_machine_learning.connectors import TorchConnector
 from matplotlib import pyplot as plt
+import matplotlib
 from tqdm import tqdm
 from math import sin
-
 num_qubits = 1
 
 def create_qnn(num_qubits):
@@ -64,11 +64,11 @@ def training_step(x_train, y_train, model, criterion, optimizer):
     return loss.item()
 
 # Input values for the defined function
-x_train = np.arange(0, 50, 0.1, dtype=np.float32)
+x_train = np.arange(0, 40, 0.1, dtype=np.float32)
 x_train = np.array(x_train)
 y_train = np.zeros(len(x_train))
 
-x_test = np.arange(0, 50, 0.1, dtype=np.float32)
+x_test = np.arange(0, 40, 0.1, dtype=np.float32)
 x_test = np.array(x_test)
 y_test = np.zeros(len(x_test))
 
@@ -83,18 +83,16 @@ plt.show()
 x_train = torch.from_numpy(x_train.reshape(-1, 1))
 y_train = torch.from_numpy(y_train.reshape(-1, 1))
 
-for i in tqdm(range(20)):
-    # Define the neural network model
-    qnn = create_qnn(num_qubits)
-    model = build_qnn(qnn)
+qnn = create_qnn(num_qubits)
+model = build_qnn(qnn)
 
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+# Loss and optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
-    # Training loop
-    for epoch in tqdm(range(10)):
-        loss = training_step(x_train, y_train, model, criterion, optimizer)
+# Training loop
+for epoch in tqdm(range(100)):
+    loss = training_step(x_train, y_train, model, criterion, optimizer)
     
 # Test the model
 x_test = torch.from_numpy(x_test.reshape(-1, 1))

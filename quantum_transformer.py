@@ -1,48 +1,110 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchtext
+from torchtext import data
+from torch.utils.data import DataLoader
+import spacy
 
-# Hyperparameters
-num_tokens = 2000  # Vocabulary size
-embed_size = 512  # Embedding dimension
-num_heads = 8  # Number of heads in multi-head attention
-num_layers = 3  # Number of transformer layers
-dropout_rate = 0.1  # Dropout rate
+# Define the text fields (assuming you have 'text' and 'label' columns)
+TEXT = data.Field(tokenize="spacy", lower=True, include_lengths=True)
+LABEL = data.LabelField(dtype=torch.float)
 
-# Transformer Model
+# Load the IMDb dataset
+train_data, test_data = torchtext.datasets.IMDB.splits(TEXT, LABEL)
+
+# Build the vocabulary
+TEXT.build_vocab(train_data, max_size=10000, vectors="glove.6B.100d")
+LABEL.build_vocab(train_data)
+
+# Define the Transformer model (you'll need to implement this)
 class TransformerModel(nn.Module):
-    def __init__(self, num_tokens, embed_size, num_heads, num_layers, dropout):
+    def __init__(self, vocab_size, embed_size, num_heads, num_encoder_layers, num_classes):
         super(TransformerModel, self).__init__()
-        self.token_embedding = nn.Embedding(num_tokens, embed_size)
-        self.positional_encoding = nn.Parameter(torch.zeros(1, embed_size, num_tokens))
-        self.transformer = nn.Transformer(d_model=embed_size, nhead=num_heads, 
-                                          num_encoder_layers=num_layers, 
-                                          num_decoder_layers=num_layers, 
-                                          dropout=dropout)
-        self.output_layer = nn.Linear(embed_size, num_tokens)
+        # Implement the Transformer model layers here
 
-    def forward(self, src, tgt):
-        src = self.token_embedding(src) + self.positional_encoding[:, :, :src.size(1)]
-        tgt = self.token_embedding(tgt) + self.positional_encoding[:, :, :tgt.size(1)]
-        output = self.transformer(src, tgt)
-        return self.output_layer(output)
+    def forward(self, text):
+        # Define the forward pass of the model
+        pass
 
-# Instantiate the model
-model = TransformerModel(num_tokens, embed_size, num_heads, num_layers, dropout_rate)
+# Define hyperparameters
+vocab_size = len(TEXT.vocab)
+embed_size = 100
+num_heads = 2
+num_encoder_layers = 2
+num_classes = 2  # For binary classification
 
-# Loss Function and Optimizer
+# Create the Transformer model
+model = TransformerModel(vocab_size, embed_size, num_heads, num_encoder_layers, num_classes)
+
+# Define loss function and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Example input (batch size, sequence length)
-src = torch.randint(0, num_tokens, (10, 35))  # Example source batch
-tgt = torch.randint(0, num_tokens, (10, 35))  # Example target batch
+# Load the spaCy English model
+#nlp = spacy.load("en_core_web_sm")
 
-# Training Loop (simplified)
-for epoch in range(1):
-    optimizer.zero_grad()
-    output = model(src, tgt)
-    loss = criterion(output.view(-1, num_tokens), tgt.view(-1))
-    loss.backward()
-    optimizer.step()
-    print(f'Epoch {epoch}, Loss: {loss.item()}')
+# Define data iterators
+BATCH_SIZE = 64
+train_iterator, test_ixterator = data.BucketIterator.splits(
+    (train_data, test_data), 
+    batch_size=BATCH_SIZE,
+    sort=False,
+    shuffle=True)
+
+# Training loop
+def train(model, iterator, optimizer, criterion):
+    model.train()
+    
+    for batch in iterator:
+        text = batch.text
+        labels = batch.label
+        
+        optimizer.zero_grad()
+        
+        # Forward pass
+        predictions = model(text)
+        
+        # Calculate loss
+        loss = criterion(predictions, labels.long())
+        
+        # Backpropagation
+        loss.backward()
+        optimizer.step()
+
+# Training the model
+NUM_EPOCHS = 10
+
+for epoch in range(NUM_EPOCHS):
+    train(model, train_iterator, optimizer, criterion)
+
+# Evaluation loop
+def evaluate(model, iterator, criterion):
+    model.eval()
+    
+    with torch.no_grad():
+        total_loss = 0
+        total_correct = 0
+        total_samples = 0
+        
+        for batch in iterator:
+            text = batch.text
+            labels = batch.label
+            
+            predictions = model(text)
+            
+            # Calculate loss
+            loss = criterion(predictions, labels.long())
+            
+            # Calculate accuracy
+            correct = (torch.argmax(predictions, dim=1) == labels).float().sum()
+            
+            total_loss += loss.item()
+            total_correct += correct.item()
+            total_samples += labels.size(0)
+    
+    return total_loss / len(iterator), total_correct / total_samples
+
+# Evaluate the model on the test set
+test_loss, test_acc = evaluate(model, test_iterator, criterion)
+print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}%')

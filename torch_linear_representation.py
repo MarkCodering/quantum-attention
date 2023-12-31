@@ -3,10 +3,11 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from math import sin, cos
 
 # Define the linear function
 def linear_function(x):
-    return 2 * x + 1
+    return sin(x)
 
 # Generate training data
 x_train = np.linspace(-10, 10, 100, dtype=np.float32)
